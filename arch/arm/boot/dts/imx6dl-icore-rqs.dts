@@ -49,3 +49,14 @@
 	model = "Engicam i.CoreM6 DualLite/Solo RQS Starter Kit";
 	compatible = "engicam,imx6-icore-rqs", "fsl,imx6dl";
 };
+
+&i2c3 {
+	sgtl5000: codec@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		VDDA-supply = <&reg_2p5v>;
+		VDDIO-supply = <&reg_3p3v>;
+		VDDD-supply = <&reg_1p8v>;
+	};
+};
