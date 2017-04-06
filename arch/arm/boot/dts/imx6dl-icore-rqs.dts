@@ -60,3 +60,11 @@
 		VDDD-supply = <&reg_1p8v>;
 	};
 };
+
+&can1 {
+	status = "okay";
+};
+
+&can2 {
+	status = "okay";
+};

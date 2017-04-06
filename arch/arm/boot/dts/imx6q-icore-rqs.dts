@@ -49,6 +49,14 @@
 	compatible = "engicam,imx6-icore-rqs", "fsl,imx6q";
 };
 
+&can1 {
+	status = "okay";
+};
+
+&can2 {
+	status = "okay";
+};
+
 &i2c3 {
 	sgtl5000: codec@a {
 		compatible = "fsl,sgtl5000";
