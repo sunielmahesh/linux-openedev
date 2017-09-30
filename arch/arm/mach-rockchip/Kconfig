@@ -1,6 +1,7 @@
 config ARCH_ROCKCHIP
 	bool "Rockchip RK2928 and RK3xxx SOCs"
 	depends on ARCH_MULTI_V7
+	select IOMMU_DMA
 	select PINCTRL
 	select PINCTRL_ROCKCHIP
 	select ARCH_DMA_ADDR_T_64BIT if ARM_LPAE
