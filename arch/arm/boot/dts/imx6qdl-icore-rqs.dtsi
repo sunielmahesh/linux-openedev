@@ -275,7 +275,7 @@
 	vbus-supply = <&reg_usb_h1_vbus>;
 	disable-over-current;
 	clocks = <&clks IMX6QDL_CLK_USBOH3>;
-	status = "okay";
+//	status = "okay";
 };
 
 &usbotg {
@@ -283,14 +283,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usbotg>;
 	disable-over-current;
-	status = "okay";
+//	status = "okay";
 };
 
 &usdhc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	no-1-8-v;
-	status = "okay";
+//	status = "okay";
 };
 
 &usdhc3 {
@@ -314,7 +314,7 @@
 	bus-witdh = <8>;
 	no-1-8-v;
 	non-removable;
-	status = "okay";
+//	status = "okay";
 };
 
 &iomuxc {
