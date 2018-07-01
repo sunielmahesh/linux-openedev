@@ -517,7 +517,7 @@
 	status = "okay";
 };
 
-&i2c7 {
+&i2c6 {
 	status = "okay";
 };
 
@@ -600,10 +600,6 @@
 		rockchip,camera-module-mipi-dphy-index = <0>;
 	};
 
-};
-
-&i2c7 {
-	status = "okay";
 };
 
 &cpu_l0 {
@@ -695,11 +691,43 @@
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart0_xfer &uart0_cts>;
+	dmas = <&dmac_peri 0>, <&dmac_peri 1>;
+	dma-names = "tx", "rx";
 	status = "okay";
 };
 
-&uart2 {
+&uart3 {
+	compatible = "rockchip,rk3399-uart", "snps,dw-apb-uart";
+	reg = <0x0 0xff1b0000 0x0 0x100>;
+	clocks = <&cru SCLK_UART3>, <&cru PCLK_UART3>;
+	clock-names = "baudclk", "apb_pclk";
+	interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH 0>;
+	dmas = <&dmac_peri 6>, <&dmac_peri 7>;
+	dma-names = "tx", "rx";
+	reg-shift = <2>;
+	reg-io-width = <4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart3_xfer &uart3_cts &uart3_rts>;
 	status = "okay";
+};
+
+&uart4 {
+	status = "okay";
+	dmas = <&dmac_peri 8>, <&dmac_peri 9>;
+	dma-names = "tx", "rx";
+};
+
+&spi0 {
+    status = "okay";
+    max-freq = <48000000>;  
+    dev-port = <1>;
+    dmas = <&dmac_peri 10>, <&dmac_peri 11>;
+    dma-names = "tx", "rx";
+    spidev@0 {
+	compatible = "linux,spidev";
+	reg = <0x00>;
+	spi-max-frequency = <48000000>;
+    };
 };
 
 &usb_host0_ehci {
