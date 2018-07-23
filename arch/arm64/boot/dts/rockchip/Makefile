@@ -49,7 +49,8 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-sapphire-excavator-edp.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-sapphire-excavator-linux.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-tve1205g.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3399-vr-android.dtb
-dtb-$(CONFIG_ARCH_ROCKCHIP) += rock960-linux.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rock960-model-ab-linux.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rock960-model-c-linux.dtb
 
 always		:= $(dtb-y)
 subdir-y	:= $(dts-dirs)

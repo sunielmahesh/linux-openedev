@@ -100,13 +100,12 @@
 	vcc3v3_pcie: vcc3v3-pcie-regulator {
 		compatible = "regulator-fixed";
 		gpio = <&gpio3 11 GPIO_ACTIVE_LOW>;
-		//gpio = <&gpio3 8 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pcie_drv>;
 		regulator-boot-on;
+		regulator-always-on;
 		regulator-name = "vcc3v3_pcie";
 		vin-supply = <&vcc3v3_sys>;
-		startup-delay-us = <70000>;
 	};
 
 	vcc5v0_host: vcc5v0-host-regulator {
@@ -140,6 +139,21 @@
 		clock-frequency = <125000000>;
 		clock-output-names = "clkin_gmac";
 		#clock-cells = <0>;
+	};
+
+	hdmi_codec: hdmi-codec {
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,mclk-fs = <256>;
+		simple-audio-card,name = "HDMI-CODEC";
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s2>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&hdmi>;
+		};
 	};
 
 	spdif-sound {
@@ -435,12 +449,12 @@
 			vcc_sd: LDO_REG4 {
 				regulator-name = "vcc_sd";
 				regulator-min-microvolt = <1800000>;
-				regulator-max-microvolt = <3300000>;
+				regulator-max-microvolt = <3000000>;
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-state-mem {
 					regulator-on-in-suspend;
-					regulator-suspend-microvolt = <3300000>;
+					regulator-suspend-microvolt = <3000000>;
 				};
 			};
 
