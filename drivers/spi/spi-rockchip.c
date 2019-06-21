@@ -465,7 +465,7 @@ static int rockchip_spi_prepare_dma(struct rockchip_spi *rs)
 		rxconf.direction = rs->dma_rx.direction;
 		rxconf.src_addr = rs->dma_rx.addr;
 		rxconf.src_addr_width = rs->n_bytes;
-		rxconf.src_maxburst = rockchip_spi_calc_burst_size(rs->len / rs->n_bytes);
+		rxconf.src_maxburst = 1;
 		dmaengine_slave_config(rs->dma_rx.ch, &rxconf);
 
 		rxdesc = dmaengine_prep_slave_sg(
@@ -537,6 +537,8 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 		cr0 |= (1 << CR0_FBM_OFFSET);/* First Bit Mode */
 	cr0 |= (rs->tmode << CR0_XFM_OFFSET);
 	cr0 |= (rs->type << CR0_FRF_OFFSET);
+	if (rs->mode & SPI_SLAVE_MODE)
+		cr0 |= (CR0_OPM_SLAVE << CR0_OPM_OFFSET);
 
 	if (rs->use_dma) {
 		if (rs->tx)
@@ -598,7 +600,7 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 	writel_relaxed(rs->fifo_len / 2 - 1, rs->regs + ROCKCHIP_SPI_RXFTLR);
 
 	writel_relaxed(rs->fifo_len / 2 - 1, rs->regs + ROCKCHIP_SPI_DMATDLR);
-	writel_relaxed(rockchip_spi_calc_burst_size(rs->len / rs->n_bytes) - 1,
+	writel_relaxed(0,
 		       rs->regs + ROCKCHIP_SPI_DMARDLR);
 	writel_relaxed(dmacr, rs->regs + ROCKCHIP_SPI_DMACR);
 
@@ -753,7 +755,7 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 
 	master->auto_runtime_pm = true;
 	master->bus_num = pdev->id;
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_LSB_FIRST;
+	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_LSB_FIRST | SPI_SLAVE_MODE;
 	master->num_chipselect = 2;
 	master->dev.of_node = pdev->dev.of_node;
 	master->bits_per_word_mask = SPI_BPW_MASK(16) | SPI_BPW_MASK(8);
