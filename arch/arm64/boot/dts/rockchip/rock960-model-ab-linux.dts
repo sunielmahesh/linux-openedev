@@ -745,11 +745,11 @@
 	status = "okay";
 };
 
-&uart4 {
-	status = "okay";
-	dmas = <&dmac_peri 8>, <&dmac_peri 9>;
-	dma-names = "tx", "rx";
-};
+//&uart4 {
+//	status = "okay";
+//	dmas = <&dmac_peri 8>, <&dmac_peri 9>;
+//	dma-names = "tx", "rx";
+//};
 
 &spi0 {
     status = "okay";
@@ -761,6 +761,20 @@
 	compatible = "linux,spidev";
 	reg = <0x00>;
 	spi-max-frequency = <48000000>;
+    };
+};
+
+&spi1 {
+    status = "okay";
+    max-freq = <48000000>;  
+    dev-port = <1>;
+    dmas = <&dmac_peri 12>, <&dmac_peri 13>;
+    dma-names = "tx", "rx";
+    spidev@0 {
+	compatible = "linux,spidev";
+	reg = <0x00>;
+	spi-max-frequency = <48000000>;
+	spi-slave-mode;
     };
 };
 
@@ -796,6 +810,14 @@
 
 &usbdrd_dwc3_1 {
 	dr_mode = "host";
+	status = "okay";
+};
+
+&pwm0 {
+	status = "okay";
+};
+
+&pwm1 {
 	status = "okay";
 };
 
