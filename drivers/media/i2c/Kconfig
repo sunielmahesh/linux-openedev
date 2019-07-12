@@ -953,6 +953,12 @@ config VIDEO_M52790
 
 	 To compile this driver as a module, choose M here: the
 	 module will be called m52790.
+
+config VIDEO_OPT8320
+        tristate "TI OPT8320 Depth Camera"
+        depends on I2C
+        ---help---
+          TI OPT8320 Depth Camera
 endmenu
 
 menu "Sensors used on soc_camera driver"
