@@ -276,7 +276,7 @@
 };
 
 &i2s0 {
-	status = "okay";
+	status = "disabled";
 	rockchip,i2s-broken-burst-len;
 	rockchip,playback-channels = <8>;
 	rockchip,capture-channels = <8>;
@@ -532,6 +532,10 @@
 };
 
 &i2c6 {
+	status = "okay";
+};
+
+&i2c7 {
 	status = "okay";
 };
 
