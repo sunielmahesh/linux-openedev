@@ -37,7 +37,6 @@
 #include <media/v4l2-subdev.h>
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
-#include <linux/mfd/qcom_pdm.h>
 
 struct opt8320 {
 	struct i2c_client *i2c_client;
@@ -46,7 +45,7 @@ struct opt8320 {
 	struct regmap *regmap;
 
 	struct regulator *dvdd;
-	struct regulator *avdd;
+	//struct regulator *avdd;
 
 	int psen_status;
 	struct gpio_desc *psen_gpio;
@@ -66,15 +65,6 @@ static const struct regmap_config opt8320_regmap_config = {
 
 	.max_register = 0xff,
 };
-
-static void check_resetz(void)
-{
-	void __iomem *base = ioremap(0x1072000, SZ_1K);
-
-	printk(KERN_ERR "%x %x %x\n", __raw_readl(base), __raw_readl(base + 0x4), __raw_readl(base + 0x8));
-
-	iounmap(base);
-}
 
 static ssize_t reg_read(struct device *dev,
 			      struct device_attribute *attr, char *buf)
@@ -246,12 +236,12 @@ static int opt8320_probe(struct i2c_client *client,
 {
 	struct device *dev = &client->dev;
 	struct opt8320 *opt;
-	struct device_node *pdm_node;
-	struct qcom_pdm *pdm;
+	//struct device_node *pdm_node;
+	//struct qcom_pdm *pdm;
 	int ret;
-	int i;
+	//int i;
 	u32 val;
-	u16 pdm_vals[] = { 0x1000, 0x3000, 0x6000, 0x9000, 0xb000, 0xffff };
+	//u16 pdm_vals[] = { 0x1000, 0x3000, 0x6000, 0x9000, 0xb000, 0xffff };
 	
 
 	opt = devm_kzalloc(dev, sizeof(struct opt8320), GFP_KERNEL);
@@ -263,6 +253,7 @@ static int opt8320_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, opt);
 
+#if 0
 	pdm_node = of_parse_phandle(dev->of_node, "pdm", 0);
 	if (!pdm_node) {
 		dev_err(dev, "couldn't find pdm node\n");
@@ -291,7 +282,7 @@ static int opt8320_probe(struct i2c_client *client,
 		dev_err(dev, "cannot get enable gpio\n");
 		return PTR_ERR(opt->psen_gpio);
 	}
-
+#endif
 	opt->rst_gpio = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(opt->rst_gpio)) {
 		dev_err(dev, "cannot get reset gpio\n");
@@ -309,12 +300,14 @@ static int opt8320_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
+#if 0
 	ret = regulator_enable(opt->avdd);
 	if (ret) {
 		dev_err(dev, "failed to enable reg");
 		return PTR_ERR(opt->avdd);
 	}
 
+#endif
 	msleep(10);
 
 	ret = clk_set_rate(opt->mclk, 24000000);
@@ -336,8 +329,7 @@ static int opt8320_probe(struct i2c_client *client,
 	//gpiod_set_value_cansleep(opt->rst_gpio, 1);
 	//msleep(10);
 
-	check_resetz();
-
+#if 0
 	gpiod_set_value_cansleep(opt->psen_gpio, 1);
 	opt->psen_status = 1;
 	msleep(10);
@@ -346,7 +338,7 @@ static int opt8320_probe(struct i2c_client *client,
 		qcom_pdm_write(opt->pdm, 2, pdm_vals[i]);
 		msleep(100);
 	}
-
+#endif
 	opt->regmap = devm_regmap_init_i2c(client, &opt8320_regmap_config);
 	if (IS_ERR(opt->regmap)) {
 		ret = PTR_ERR(opt->regmap);
