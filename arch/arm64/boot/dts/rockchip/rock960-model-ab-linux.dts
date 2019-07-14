@@ -536,7 +536,23 @@
 };
 
 &i2c7 {
+	label = "ToF";
 	status = "okay";
+
+	tof@59 {
+		compatible = "ti,opt8320";
+		reg = <0x59>;
+		status = "okay";
+
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&tof_default_pins>;
+		pinctrl-1 = <&tof_sleep_pins>;
+
+		clocks = <&cru SCLK_CIF_OUT>;
+		clock-names = "mclk";
+
+		reset-gpios = <&gpio3 25 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &i2c4 {

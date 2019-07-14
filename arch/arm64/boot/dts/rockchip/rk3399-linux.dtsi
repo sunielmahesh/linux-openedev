@@ -233,4 +233,17 @@
 				<2 11 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+
+	tof_pins {
+		tof_default_pins: tof-default-pins {
+			rockchip,pins =
+				<3 25 RK_FUNC_GPIO &pcfg_pull_none>,
+				<2 11 RK_FUNC_3 &pcfg_pull_none>;
+		};
+		tof_sleep_pins: tof-sleep-pins {
+			rockchip,pins =
+				<3 25 RK_FUNC_GPIO &pcfg_pull_none>,
+				<2 11 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
 };
