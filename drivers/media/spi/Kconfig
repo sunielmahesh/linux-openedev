@@ -18,6 +18,13 @@ config VIDEO_ROCKCHIP_PREISP
 	help
 	  Support for Pre-isp on the rockchip SoC.
 
+
+config VIDEO_TI_TOF
+        tristate "TI TOF"
+        depends on SPI && VIDEO_V4L2
+        select VIDEOBUF2_VMALLOC
+        ---help---
+          TI TOF Capture driver
 endmenu
 
 endif
