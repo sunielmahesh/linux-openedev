@@ -96,7 +96,7 @@ static irqreturn_t tof_irq(int irq, void *devid)
 
 	buf->vb.sequence = t->tof_cap_seq_count;
 	buf->vb.field = t->field;
-	buf->vb.vb2_buf.timestamp = ktime_get_ns();
+	//buf->vb.vb2_buf.timestamp = ktime_get_ns();
 
 	vbuf = vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
 
@@ -135,9 +135,9 @@ static void tof_v4l2dev_release(struct v4l2_device *v4l2_dev)
 	v4l2_device_unregister(&t->v4l2_dev);
 }
 
-static int tof_cap_queue_setup(struct vb2_queue *vq,
-		       unsigned *nbuffers, unsigned *nplanes,
-		       unsigned sizes[], struct device *alloc_devs[])
+static int tof_cap_queue_setup(struct vb2_queue *vq, const void *parg,
+		       unsigned int *nbuffers, unsigned int *nplanes,
+		       unsigned int sizes[], void *alloc_devs[])
 {
 	struct tof *t = vb2_get_drv_priv(vq);
 	unsigned buffers = 1;
@@ -254,7 +254,7 @@ const struct vb2_ops tof_cap_qops = {
 
 static int tof_fop_release(struct file *file)
 {
-	struct tof *t = video_drvdata(file);
+	//struct tof *t = video_drvdata(file);
 	struct video_device *vdev = video_devdata(file);
 
 	if (vdev->queue)
