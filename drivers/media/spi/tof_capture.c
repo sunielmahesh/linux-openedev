@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/videodev2.h>
 #include <media/v4l2-common.h>
@@ -46,6 +47,8 @@ struct tof {
 	int enabled;
 	struct mutex			mutex;
 
+	struct gpio_desc	*toggle_gpio;
+
 	u32	fourcc;          /* v4l2 format id */
 	enum v4l2_field			field;
 	struct v4l2_rect		src_rect;
@@ -68,7 +71,8 @@ struct tof_buffer {
 static unsigned effective_width_bytes(struct tof *t)
 {
 	/* around 80 * 4 * 3 + blanking */
-	return 1024;
+	//return 1024;
+	return 80*4;
 }
 
 static irqreturn_t tof_irq(int irq, void *devid)
@@ -79,9 +83,7 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	struct spi_transfer *xfer = &t->xfer;
 	struct tof_buffer *buf = NULL;
 	struct timespec tp1,tp2;
-	static struct timespec prev;
 	void *vbuf;
-
 
 	spin_lock(&t->slock);
 
@@ -90,6 +92,8 @@ static irqreturn_t tof_irq(int irq, void *devid)
 		list_del(&buf->list);
 	}
 	spin_unlock(&t->slock);
+
+	gpiod_set_value_cansleep(t->toggle_gpio, 1);
 
 	if (!buf)
 		return IRQ_HANDLED;
@@ -101,26 +105,25 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	vbuf = vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
 
 	ktime_get_real_ts(&tp1);
-	prev = tp1;
-
-	//printk(KERN_ERR "VD interrupt %lld\n", timespec_to_ns(&tp1));
+	printk(KERN_ERR "VD interrupt %lld\n", timespec_to_ns(&tp1));
 	//printk(KERN_ERR "vbuf %x\n", vbuf);
 
 	spi_message_init(&msg);
 
-	xfer->bits_per_word = 32;
+	xfer->bits_per_word = 16;
 	xfer->delay_usecs = 0;
-	xfer->speed_hz = 18000000;
-	xfer->len = effective_width_bytes(t) * t->src_rect.height;
+	xfer->speed_hz = 50000000;
+	xfer->len = (80 * 4 * 60) + (2 * 80 * 4);
 	xfer->rx_buf = vbuf;
 
-        spi_message_add_tail(xfer, &msg);
+	spi_message_add_tail(xfer, &msg);
 
-        ret = spi_sync(t->spi, &msg);
-
+	ret = spi_sync(t->spi, &msg);
 	ktime_get_real_ts(&tp2);
 
-	//printk(KERN_ERR "got RET %d, delta: %lld\n", ret, timespec_to_ns(&tp2) -timespec_to_ns(&tp1));
+	gpiod_set_value_cansleep(t->toggle_gpio, 0);
+
+	printk(KERN_ERR "got RET %d, delta: %lld\n", ret, timespec_to_ns(&tp2) -timespec_to_ns(&tp1));
 
 	vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	dprintk(t, 2, "buffer %d done\n", buf->vb.vb2_buf.index);
@@ -151,12 +154,12 @@ static int tof_cap_queue_setup(struct vb2_queue *vq, const void *parg,
 		if (*nplanes != buffers)
 			return -EINVAL;
 		for (p = 0; p < buffers; p++) {
-			if (sizes[p] < effective_width_bytes(t) * t->src_rect.height)
+			if (sizes[p] < effective_width_bytes(t) * (t->src_rect.height+2))
 				return -EINVAL;
 		}
 	} else {
 		for (p = 0; p < buffers; p++)
-			sizes[p] = effective_width_bytes(t) * t->src_rect.height;
+			sizes[p] = effective_width_bytes(t) * (t->src_rect.height+2);
 	}
 
 	if (vq->num_buffers + *nbuffers < 2)
@@ -179,7 +182,7 @@ static int tof_cap_buf_prepare(struct vb2_buffer *vb)
 	unsigned p;
 
 	for (p = 0; p < buffers; p++) {
-		size = effective_width_bytes(t) * t->src_rect.height;
+		size = effective_width_bytes(t) * (t->src_rect.height + 2);
 
 		if (vb2_plane_size(vb, p) < size) {
 			dprintk(t, 1, "%s data will not fit into plane %u (%lu < %lu)\n",
@@ -292,7 +295,7 @@ static int tof_querycap(struct file *file, void  *priv,
 static int tof_enum_fmt_vid(struct file *file, void  *priv,
 					struct v4l2_fmtdesc *f)
 {
-	struct tof *t = video_drvdata(file);
+	//struct tof *t = video_drvdata(file);
 
 	f->pixelformat = V4L2_PIX_FMT_ARGB32;
 
@@ -317,7 +320,7 @@ int tof_g_fmt_vid_cap(struct file *file, void *priv,
 	mp->num_planes = 1;
 	for (p = 0; p < mp->num_planes; p++) {
 		mp->plane_fmt[p].bytesperline = effective_width_bytes(t);
-		mp->plane_fmt[p].sizeimage = effective_width_bytes(t) * mp->height;
+		mp->plane_fmt[p].sizeimage = effective_width_bytes(t) * (mp->height+2);
 	}
 
 	return 0;
@@ -329,9 +332,9 @@ int tof_try_fmt_vid_cap(struct file *file, void *priv,
 	struct v4l2_pix_format_mplane *mp = &f->fmt.pix_mp;
 	struct v4l2_plane_pix_format *pfmt = mp->plane_fmt;
 	struct tof *t = video_drvdata(file);
-	unsigned bytesperline, max_bpl;
-	unsigned factor = 1;
-	unsigned w, h;
+	unsigned bytesperline;// max_bpl;
+	//unsigned factor = 1;
+	//unsigned w, h;
 	unsigned p;
 
 	mp->pixelformat = V4L2_PIX_FMT_ARGB32;
@@ -341,9 +344,10 @@ int tof_try_fmt_vid_cap(struct file *file, void *priv,
 	mp->num_planes = 1;
 	for (p = 0; p < mp->num_planes; p++) {
 		bytesperline = effective_width_bytes(t);
+		bytesperline = 80 * 4;
 
 		pfmt[p].bytesperline = bytesperline;
-		pfmt[p].sizeimage = bytesperline * mp->height;
+		pfmt[p].sizeimage = (bytesperline * (mp->height + 2));
 		memset(pfmt[p].reserved, 0, sizeof(pfmt[p].reserved));
 	}
 	mp->colorspace   = V4L2_COLORSPACE_SRGB;
@@ -481,12 +485,18 @@ static int tof_probe(struct spi_device *spi)
 
 	disable_irq(spi->irq);
 
+	t->toggle_gpio = devm_gpiod_get(&spi->dev, "toggle", GPIOD_OUT_LOW);
+	if (IS_ERR(t->toggle_gpio)) {
+		dev_err(&spi->dev, "cannot get toggle gpio\n");
+		return PTR_ERR(t->toggle_gpio);
+	}
+
 	/* SPI init */
 	t->spi = spi;
 
 	spi->mode = SPI_MODE_0;
 	spi->max_speed_hz = 50000000;
-	spi->bits_per_word = 32;
+	spi->bits_per_word = 16;
 	ret = spi_setup(spi);
 
 	printk(KERN_ERR "ToF SPI driver probed %d\n", ret);

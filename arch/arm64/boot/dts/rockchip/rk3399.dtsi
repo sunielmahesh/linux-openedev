@@ -717,7 +717,7 @@
 		clock-names = "spiclk", "apb_pclk";
 		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH 0>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&spi1_clk &spi1_tx &spi1_rx &spi1_cs0>;
+		pinctrl-0 = <&spi1_clk &spi1_rx &spi1_cs0>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		status = "disabled";

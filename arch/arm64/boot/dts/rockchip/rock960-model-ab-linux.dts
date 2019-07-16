@@ -771,10 +771,19 @@
     dmas = <&dmac_peri 12>, <&dmac_peri 13>;
     dma-names = "tx", "rx";
     spidev@0 {
-	compatible = "linux,spidev";
+	compatible = "ti,tof";
 	reg = <0x00>;
 	spi-max-frequency = <48000000>;
 	spi-slave-mode;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&tof_streamer_default_pins>;
+	pinctrl-1 = <&tof_streamer_sleep_pins>;
+
+	toggle-gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+
+	interrupt-parent = <&gpio1>;
+	interrupts = <8 IRQ_TYPE_EDGE_RISING>;
     };
 };
 

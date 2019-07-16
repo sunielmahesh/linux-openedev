@@ -203,6 +203,8 @@ static inline void spi_enable_chip(struct rockchip_spi *rs, int enable)
 
 static inline void spi_set_clk(struct rockchip_spi *rs, u16 div)
 {
+	return;
+
 	writel_relaxed(div, rs->regs + ROCKCHIP_SPI_BAUDR);
 }
 
@@ -262,6 +264,9 @@ static void rockchip_spi_set_cs(struct spi_device *spi, bool enable)
 	u32 ser;
 	struct spi_master *master = spi->master;
 	struct rockchip_spi *rs = spi_master_get_devdata(master);
+
+	if (rs->mode & SPI_SLAVE_MODE)
+		return;
 
 	pm_runtime_get_sync(rs->dev);
 
@@ -384,6 +389,7 @@ static int rockchip_spi_pio_transfer(struct rockchip_spi *rs)
 		if (rs->rx) {
 			remain = rs->rx_end - rs->rx;
 			rockchip_spi_pio_reader(rs);
+			printk(KERN_ERR "REMAIN %d\n", remain);
 		}
 
 		cpu_relax();
@@ -402,6 +408,10 @@ static void rockchip_spi_dma_rxcb(void *data)
 {
 	unsigned long flags;
 	struct rockchip_spi *rs = data;
+	struct timespec tp1;
+
+	ktime_get_real_ts(&tp1);
+	printk(KERN_ERR "DMA RX CB %lld!\n", timespec_to_ns(&tp1));
 
 	spin_lock_irqsave(&rs->lock, flags);
 
@@ -433,6 +443,7 @@ static void rockchip_spi_dma_txcb(void *data)
 	spin_unlock_irqrestore(&rs->lock, flags);
 }
 
+#if 0
 static u32 rockchip_spi_calc_burst_size(u32 data_len)
 {
 	u32 i;
@@ -445,6 +456,7 @@ static u32 rockchip_spi_calc_burst_size(u32 data_len)
 
 	return i;
 }
+#endif
 
 static int rockchip_spi_prepare_dma(struct rockchip_spi *rs)
 {
@@ -550,15 +562,18 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 	if (WARN_ON(rs->speed > MAX_SCLK_OUT))
 		rs->speed = MAX_SCLK_OUT;
 
+#if 0
 	/* the minimum divisor is 2 */
 	if (rs->max_freq < 2 * rs->speed) {
 		clk_set_rate(rs->spiclk, 2 * rs->speed);
 		rs->max_freq = clk_get_rate(rs->spiclk);
 	}
-
 	/* div doesn't support odd number */
 	div = DIV_ROUND_UP(rs->max_freq, rs->speed);
 	div = (div + 1) & 0xfffe;
+#else
+	div = 0;
+#endif
 
 	/*
 	 * If speed is larger than IO_DRIVER_4MA_MAX_SCLK_OUT,
@@ -573,6 +588,7 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 					     rs->dev->pins->default_state);
 	}
 
+#if 0
 	/* Rx sample delay is expressed in parent clock cycles (max 3) */
 	rsd = DIV_ROUND_CLOSEST(rs->rsd_nsecs * (rs->max_freq >> 8),
 				1000000000 >> 8);
@@ -586,7 +602,9 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 			     rsd * 1000000000U / rs->max_freq);
 	}
 	cr0 |= rsd << CR0_RSD_OFFSET;
-
+#else
+	rsd = 0;
+#endif
 	writel_relaxed(cr0, rs->regs + ROCKCHIP_SPI_CTRLR0);
 
 	if (rs->n_bytes == 1)
@@ -666,6 +684,7 @@ static int rockchip_spi_transfer_one(
 	} else {
 		spi_enable_chip(rs, 1);
 		ret = rockchip_spi_pio_transfer(rs);
+		spi_finalize_current_transfer(rs->master);
 	}
 
 	return ret;
@@ -723,6 +742,8 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to enable apb_pclk\n");
 		goto err_ioremap_resource;
 	}
+
+	//clk_set_rate(rs->spiclk, 50000000);
 
 	ret = clk_prepare_enable(rs->spiclk);
 	if (ret) {
@@ -951,7 +972,7 @@ MODULE_DEVICE_TABLE(of, rockchip_spi_dt_match);
 static struct platform_driver rockchip_spi_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
-		.pm = &rockchip_spi_pm,
+		//.pm = &rockchip_spi_pm,
 		.of_match_table = of_match_ptr(rockchip_spi_dt_match),
 	},
 	.probe = rockchip_spi_probe,
