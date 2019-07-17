@@ -93,10 +93,15 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	}
 	spin_unlock(&t->slock);
 
-	gpiod_set_value_cansleep(t->toggle_gpio, 1);
-
 	if (!buf)
 		return IRQ_HANDLED;
+
+
+	gpiod_set_value_cansleep(t->toggle_gpio, 1);
+
+	usleep_range(100,200);
+
+	gpiod_set_value_cansleep(t->toggle_gpio, 0);
 
 	buf->vb.sequence = t->tof_cap_seq_count;
 	buf->vb.field = t->field;
@@ -105,7 +110,7 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	vbuf = vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
 
 	ktime_get_real_ts(&tp1);
-	printk(KERN_ERR "VD interrupt %lld\n", timespec_to_ns(&tp1));
+	//printk(KERN_ERR "VD interrupt %lld\n", timespec_to_ns(&tp1));
 	//printk(KERN_ERR "vbuf %x\n", vbuf);
 
 	spi_message_init(&msg);
@@ -121,9 +126,7 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	ret = spi_sync(t->spi, &msg);
 	ktime_get_real_ts(&tp2);
 
-	gpiod_set_value_cansleep(t->toggle_gpio, 0);
-
-	printk(KERN_ERR "got RET %d, delta: %lld\n", ret, timespec_to_ns(&tp2) -timespec_to_ns(&tp1));
+	//printk(KERN_ERR "got RET %d, delta: %lld\n", ret, timespec_to_ns(&tp2) -timespec_to_ns(&tp1));
 
 	vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	dprintk(t, 2, "buffer %d done\n", buf->vb.vb2_buf.index);

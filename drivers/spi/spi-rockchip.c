@@ -389,7 +389,6 @@ static int rockchip_spi_pio_transfer(struct rockchip_spi *rs)
 		if (rs->rx) {
 			remain = rs->rx_end - rs->rx;
 			rockchip_spi_pio_reader(rs);
-			printk(KERN_ERR "REMAIN %d\n", remain);
 		}
 
 		cpu_relax();
@@ -399,7 +398,7 @@ static int rockchip_spi_pio_transfer(struct rockchip_spi *rs)
 	if (rs->tx)
 		wait_for_idle(rs);
 
-	spi_enable_chip(rs, 0);
+	//spi_enable_chip(rs, 0);
 
 	return 0;
 }
@@ -417,7 +416,7 @@ static void rockchip_spi_dma_rxcb(void *data)
 
 	rs->state &= ~RXBUSY;
 	if (!(rs->state & TXBUSY)) {
-		spi_enable_chip(rs, 0);
+		//spi_enable_chip(rs, 0);
 		spi_finalize_current_transfer(rs->master);
 	}
 
@@ -579,6 +578,7 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 	 * If speed is larger than IO_DRIVER_4MA_MAX_SCLK_OUT,
 	 * set higher driver strength.
 	 */
+#if 0
 	if (rs->high_speed_state) {
 		if (rs->speed > IO_DRIVER_4MA_MAX_SCLK_OUT)
 			pinctrl_select_state(rs->dev->pins->p,
@@ -587,7 +587,7 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 			pinctrl_select_state(rs->dev->pins->p,
 					     rs->dev->pins->default_state);
 	}
-
+#endif
 #if 0
 	/* Rx sample delay is expressed in parent clock cycles (max 3) */
 	rsd = DIV_ROUND_CLOSEST(rs->rsd_nsecs * (rs->max_freq >> 8),
@@ -605,7 +605,7 @@ static void rockchip_spi_config(struct rockchip_spi *rs)
 #else
 	rsd = 0;
 #endif
-	writel_relaxed(cr0, rs->regs + ROCKCHIP_SPI_CTRLR0);
+	//writel_relaxed(cr0, rs->regs + ROCKCHIP_SPI_CTRLR0);
 
 	if (rs->n_bytes == 1)
 		writel_relaxed(rs->len - 1, rs->regs + ROCKCHIP_SPI_CTRLR1);
@@ -786,6 +786,8 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 	master->unprepare_message = rockchip_spi_unprepare_message;
 	master->transfer_one = rockchip_spi_transfer_one;
 	master->handle_err = rockchip_spi_handle_err;
+
+	writel_relaxed(0x182c02, rs->regs + ROCKCHIP_SPI_CTRLR0);
 
 	rs->dma_tx.ch = dma_request_slave_channel(rs->dev, "tx");
 	if (IS_ERR_OR_NULL(rs->dma_tx.ch)) {
