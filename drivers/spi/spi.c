@@ -1171,8 +1171,8 @@ static void __spi_pump_messages(struct spi_master *master, bool in_kthread)
 
 	ret = master->transfer_one_message(master, master->cur_msg);
 	if (ret) {
-		dev_err(&master->dev,
-			"failed to transfer one message from queue\n");
+		//dev_err(&master->dev,
+		//	"failed to transfer one message from queue\n");
 		return;
 	}
 }

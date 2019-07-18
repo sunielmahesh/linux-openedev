@@ -35,6 +35,9 @@
 #include <media/v4l2-fh.h>
 #include <media/v4l2-event.h>
 
+#include <linux/kthread.h>
+#include <linux/sched.h>
+
 #define dprintk(t, level, fmt, arg...) \
 	v4l2_dbg(level, 1, &t->v4l2_dev, fmt, ## arg)
 
@@ -59,6 +62,12 @@ struct tof {
 	spinlock_t			slock;
 
 	struct spi_transfer	xfer;
+
+	struct task_struct *thread;
+	struct kthread_worker worker;
+	struct kthread_work work;
+
+	bool streaming;
 };
 
 /* buffer for one video frame */
@@ -75,9 +84,9 @@ static unsigned effective_width_bytes(struct tof *t)
 	return 80*4;
 }
 
-static irqreturn_t tof_irq(int irq, void *devid)
+static void tof_worker(struct kthread_work *work)
 {
-	struct tof *t = devid;
+	struct tof *t = container_of(work, struct tof, work);
 	int ret;
 	struct spi_message msg;
 	struct spi_transfer *xfer = &t->xfer;
@@ -93,15 +102,10 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	}
 	spin_unlock(&t->slock);
 
-	if (!buf)
-		return IRQ_HANDLED;
-
-
-	gpiod_set_value_cansleep(t->toggle_gpio, 1);
-
-	usleep_range(100,200);
-
-	gpiod_set_value_cansleep(t->toggle_gpio, 0);
+	if (!buf) {
+		printk(KERN_ERR "returning!!!\n");
+		return;
+	}
 
 	buf->vb.sequence = t->tof_cap_seq_count;
 	buf->vb.field = t->field;
@@ -118,20 +122,40 @@ static irqreturn_t tof_irq(int irq, void *devid)
 	xfer->bits_per_word = 16;
 	xfer->delay_usecs = 0;
 	xfer->speed_hz = 50000000;
-	xfer->len = (80 * 4 * 60) + (2 * 80 * 4);
+	xfer->len = (80 * 4 * 60) + (0 * 80 * 4);
 	xfer->rx_buf = vbuf;
 
 	spi_message_add_tail(xfer, &msg);
 
+	gpiod_set_value_cansleep(t->toggle_gpio, 1);
 	ret = spi_sync(t->spi, &msg);
 	ktime_get_real_ts(&tp2);
 
+	gpiod_set_value(t->toggle_gpio, 0);
 	//printk(KERN_ERR "got RET %d, delta: %lld\n", ret, timespec_to_ns(&tp2) -timespec_to_ns(&tp1));
-
 	vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_DONE);
 	dprintk(t, 2, "buffer %d done\n", buf->vb.vb2_buf.index);
 
-	return ret < 0 ? IRQ_NONE : IRQ_HANDLED;
+	//return ret < 0 ? IRQ_NONE : IRQ_HANDLED;
+}
+
+static irqreturn_t tof_irq(int irq, void *devid)
+{
+	struct tof *t = devid;
+	struct tof_buffer *buf = NULL;
+
+	spin_lock(&t->slock);
+	if (t->streaming && !list_empty(&t->active)) {
+		buf = list_entry(t->active.next, struct tof_buffer, list);
+	}
+	spin_unlock(&t->slock);
+
+	if (!buf)
+		return IRQ_HANDLED;
+
+	queue_kthread_work(&t->worker, &t->work);
+
+	return IRQ_HANDLED;
 }
 
 static void tof_v4l2dev_release(struct v4l2_device *v4l2_dev)
@@ -157,12 +181,12 @@ static int tof_cap_queue_setup(struct vb2_queue *vq, const void *parg,
 		if (*nplanes != buffers)
 			return -EINVAL;
 		for (p = 0; p < buffers; p++) {
-			if (sizes[p] < effective_width_bytes(t) * (t->src_rect.height+2))
+			if (sizes[p] < effective_width_bytes(t) * (t->src_rect.height+0))
 				return -EINVAL;
 		}
 	} else {
 		for (p = 0; p < buffers; p++)
-			sizes[p] = effective_width_bytes(t) * (t->src_rect.height+2);
+			sizes[p] = effective_width_bytes(t) * (t->src_rect.height+0);
 	}
 
 	if (vq->num_buffers + *nbuffers < 2)
@@ -185,7 +209,7 @@ static int tof_cap_buf_prepare(struct vb2_buffer *vb)
 	unsigned p;
 
 	for (p = 0; p < buffers; p++) {
-		size = effective_width_bytes(t) * (t->src_rect.height + 2);
+		size = effective_width_bytes(t) * (t->src_rect.height + 0);
 
 		if (vb2_plane_size(vb, p) < size) {
 			dprintk(t, 1, "%s data will not fit into plane %u (%lu < %lu)\n",
@@ -222,7 +246,11 @@ static int tof_cap_start_streaming(struct vb2_queue *vq, unsigned count)
 	t->tof_cap_seq_count = 0;
 	dprintk(t, 1, "%s\n", __func__);
 
-	enable_irq(t->spi->irq);
+	spin_lock(&t->slock);
+	t->streaming = true;
+	spin_unlock(&t->slock);
+
+	//enable_irq(t->spi->irq);
 
 	return 0;
 }
@@ -233,7 +261,10 @@ static void tof_cap_stop_streaming(struct vb2_queue *vq)
 	struct tof *t = vb2_get_drv_priv(vq);
 
 	dprintk(t, 1, "%s\n", __func__);
-	disable_irq(t->spi->irq);
+	//disable_irq(t->spi->irq);
+	spin_lock(&t->slock);
+	t->streaming = false;
+	spin_unlock(&t->slock);
 
 	//we need to dequeue the undone buffers here
 	while (!list_empty(&t->active)) {
@@ -323,7 +354,7 @@ int tof_g_fmt_vid_cap(struct file *file, void *priv,
 	mp->num_planes = 1;
 	for (p = 0; p < mp->num_planes; p++) {
 		mp->plane_fmt[p].bytesperline = effective_width_bytes(t);
-		mp->plane_fmt[p].sizeimage = effective_width_bytes(t) * (mp->height+2);
+		mp->plane_fmt[p].sizeimage = effective_width_bytes(t) * (mp->height+0);
 	}
 
 	return 0;
@@ -350,7 +381,7 @@ int tof_try_fmt_vid_cap(struct file *file, void *priv,
 		bytesperline = 80 * 4;
 
 		pfmt[p].bytesperline = bytesperline;
-		pfmt[p].sizeimage = (bytesperline * (mp->height + 2));
+		pfmt[p].sizeimage = (bytesperline * (mp->height + 0));
 		memset(pfmt[p].reserved, 0, sizeof(pfmt[p].reserved));
 	}
 	mp->colorspace   = V4L2_COLORSPACE_SRGB;
@@ -415,6 +446,7 @@ static int tof_probe(struct spi_device *spi)
 	struct tof *t;
 	struct video_device *vfd;
 	struct vb2_queue *q;
+	struct sched_param param;
 
 	t = devm_kzalloc(&spi->dev, sizeof(struct tof), GFP_KERNEL);
 	if (!t)
@@ -486,7 +518,7 @@ static int tof_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	disable_irq(spi->irq);
+	//disable_irq(spi->irq);
 
 	t->toggle_gpio = devm_gpiod_get(&spi->dev, "toggle", GPIOD_OUT_LOW);
 	if (IS_ERR(t->toggle_gpio)) {
@@ -504,6 +536,18 @@ static int tof_probe(struct spi_device *spi)
 
 	printk(KERN_ERR "ToF SPI driver probed %d\n", ret);
 
+	init_kthread_work(&t->work, tof_worker);
+	init_kthread_worker(&t->worker);
+	t->thread = kthread_run(kthread_worker_fn, &t->worker,
+					"tof_worker");
+
+	param.sched_priority = MAX_RT_PRIO - 1;
+
+	ret = sched_setscheduler(t->thread, SCHED_FIFO, &param);
+	if (ret) {
+		printk(KERN_ERR "Failed to set priority %d\n", ret);
+		return ret;
+	}
 	return ret;
 }
 

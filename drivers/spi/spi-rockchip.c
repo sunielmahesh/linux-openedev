@@ -410,13 +410,13 @@ static void rockchip_spi_dma_rxcb(void *data)
 	struct timespec tp1;
 
 	ktime_get_real_ts(&tp1);
-	printk(KERN_ERR "DMA RX CB %lld!\n", timespec_to_ns(&tp1));
+	//printk(KERN_ERR "DMA RX CB %lld!\n", timespec_to_ns(&tp1));
 
 	spin_lock_irqsave(&rs->lock, flags);
 
 	rs->state &= ~RXBUSY;
 	if (!(rs->state & TXBUSY)) {
-		//spi_enable_chip(rs, 0);
+		spi_enable_chip(rs, 0);
 		spi_finalize_current_transfer(rs->master);
 	}
 
@@ -786,6 +786,7 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 	master->unprepare_message = rockchip_spi_unprepare_message;
 	master->transfer_one = rockchip_spi_transfer_one;
 	master->handle_err = rockchip_spi_handle_err;
+	master->rt = true;
 
 	writel_relaxed(0x182c02, rs->regs + ROCKCHIP_SPI_CTRLR0);
 
