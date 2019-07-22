@@ -21,6 +21,7 @@
 #include <linux/spi/spi.h>
 #include <linux/pm_runtime.h>
 #include <linux/scatterlist.h>
+#include <linux/interrupt.h>
 
 #define DRIVER_NAME "rockchip-spi"
 
@@ -403,6 +404,19 @@ static int rockchip_spi_pio_transfer(struct rockchip_spi *rs)
 	return 0;
 }
 
+static irqreturn_t rockchip_spi_isr(int irq, void *dev_id)
+{
+	struct spi_master *master = dev_id;
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+	u32 isr = readl_relaxed(rs->regs + ROCKCHIP_SPI_ISR);
+
+	printk(KERN_ERR "ISR %x\n", isr);
+	writel_relaxed(1, rs->regs + ROCKCHIP_SPI_ICR);
+	writel_relaxed(0x0, rs->regs + ROCKCHIP_SPI_IMR);
+
+	return IRQ_HANDLED;
+}
+
 static void rockchip_spi_dma_rxcb(void *data)
 {
 	unsigned long flags;
@@ -673,6 +687,7 @@ static int rockchip_spi_transfer_one(
 
 	if (rs->use_dma) {
 		if (rs->tmode == CR0_XFM_RO) {
+			writel_relaxed(INT_RF_OVERFLOW, rs->regs + ROCKCHIP_SPI_IMR);
 			/* rx: dma must be prepared first */
 			ret = rockchip_spi_prepare_dma(rs);
 			spi_enable_chip(rs, 1);
@@ -832,6 +847,15 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to register master\n");
 		goto err_register_master;
 	}
+
+	ret = platform_get_irq(pdev, 0);
+	if (ret < 0)
+		goto err_get_fifo_len;
+
+	ret = devm_request_threaded_irq(&pdev->dev, ret, rockchip_spi_isr, NULL,
+			IRQF_ONESHOT, dev_name(&pdev->dev), master);
+	if (ret < 0)
+		goto err_get_fifo_len;
 
 	return 0;
 
