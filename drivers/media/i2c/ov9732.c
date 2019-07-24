@@ -724,17 +724,16 @@ static const struct ov9732_mode_info ov9732_mode_info_data[] = {
 	},
 };
 
-#if 0
 static int ov9732_regulators_enable(struct ov9732 *ov9732)
 {
 	int ret;
-
+#if 0
 	ret = regulator_enable(ov9732->avdd);
 	if (ret) {
 		dev_err(ov9732->dev, "set analog voltage failed\n");
 		return ret;
 	}
-
+#endif
 	ret = regulator_enable(ov9732->dvdd);
 	if (ret) {
 		dev_err(ov9732->dev, "set core voltage failed\n");
@@ -744,11 +743,12 @@ static int ov9732_regulators_enable(struct ov9732 *ov9732)
 	return 0;
 
 err_disable_analog:
-	regulator_disable(ov9732->avdd);
+	//regulator_disable(ov9732->avdd);
 
 	return ret;
 }
 
+#if 0
 static void ov9732_regulators_disable(struct ov9732 *ov9732)
 {
 	int ret;
@@ -1005,14 +1005,12 @@ static enum hrtimer_restart ov9732_hrtimer_callback(struct hrtimer *timer)
 
 static int ov9732_set_power_on(struct ov9732 *ov9732)
 {
-#if 0
 	int ret;
 
 	ret = ov9732_regulators_enable(ov9732);
 	if (ret < 0) {
 		return ret;
 	}
-#endif
 	if (ov9732->enable_gpio) {
 		usleep_range(5000, 15000);
 		gpiod_set_value_cansleep(ov9732->enable_gpio, 1);
@@ -1050,7 +1048,6 @@ static int ov9732_s_power(struct v4l2_subdev *sd, int on)
 
 	if (ov9732->power_count == !on) {
 		if (on) {
-			mutex_lock(&ov9732_lock);
 
 			ret = ov9732_set_power_on(ov9732);
 			if (ret < 0)
@@ -1062,11 +1059,9 @@ static int ov9732_s_power(struct v4l2_subdev *sd, int on)
 				dev_err(ov9732->dev,
 					"could not change i2c address\n");
 				//ov9732_set_power_off(ov9732);
-				//mutex_unlock(&ov9732_lock);
 				goto exit;
 			}
 
-			mutex_unlock(&ov9732_lock);
 
 			ret = ov9732_set_register_array(ov9732,
 					ov9732_global_init_setting,
@@ -1788,7 +1783,6 @@ static int ov9732_probe(struct i2c_client *client,
 		return ret;
 	}
 
-#if 0
 	ov9732->dvdd = devm_regulator_get(dev, "dvdd");
 	if (IS_ERR(ov9732->dvdd)) {
 		dev_err(dev, "cannot get core regulator\n");
@@ -1802,6 +1796,7 @@ static int ov9732_probe(struct i2c_client *client,
 		return ret;
 	}
 
+#if 0
 	ov9732->avdd = devm_regulator_get(dev, "avdd");
 	if (IS_ERR(ov9732->avdd)) {
 		dev_err(dev, "cannot get analog regulator\n");
@@ -1828,6 +1823,14 @@ static int ov9732_probe(struct i2c_client *client,
 		return PTR_ERR(ov9732->rst_gpio);
 	}
 
+	mutex_init(&ov9732->power_lock);
+	v4l2_i2c_subdev_init(&ov9732->sd, client, &ov9732_subdev_ops);
+	ret = ov9732_s_power(&ov9732->sd, true);
+	if (ret < 0) {
+		dev_err(dev, "could not power up OV5645\n");
+		return -EPROBE_DEFER;
+	}
+
 #if 0
 	ov9732->tof_vdin_gpio = devm_gpiod_get(dev, "tof", GPIOD_OUT_LOW);
 	if (IS_ERR(ov9732->tof_vdin_gpio)) {
@@ -1847,7 +1850,6 @@ static int ov9732_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 #endif
-	mutex_init(&ov9732->power_lock);
 
 	v4l2_ctrl_handler_init(&ov9732->ctrls, 9);
 	v4l2_ctrl_new_std(&ov9732->ctrls, &ov9732_ctrl_ops,
@@ -1906,7 +1908,6 @@ static int ov9732_probe(struct i2c_client *client,
 	}
 
 
-	v4l2_i2c_subdev_init(&ov9732->sd, client, &ov9732_subdev_ops);
 	ov9732->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	ov9732->pad.flags = MEDIA_PAD_FL_SOURCE;
 	ov9732->sd.dev = &client->dev;
@@ -1936,12 +1937,6 @@ static int ov9732_probe(struct i2c_client *client,
 	if (ret < 0) {
 		dev_err(dev, "could not register media entity\n");
 		goto free_ctrl;
-	}
-
-	ret = ov9732_s_power(&ov9732->sd, true);
-	if (ret < 0) {
-		dev_err(dev, "could not power up OV5645\n");
-		return -EPROBE_DEFER;
 	}
 
 	ret = ov9732_read_reg(ov9732, REG_CHIP_ID_HIGH, &chip_id_high);

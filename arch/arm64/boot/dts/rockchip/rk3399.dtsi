@@ -580,19 +580,6 @@
 		status = "disabled";
 	};
 
-	i2c2: i2c@ff120000 {
-		compatible = "rockchip,rk3399-i2c";
-		reg = <0x0 0xff120000 0x0 0x1000>;
-		clocks = <&cru SCLK_I2C2>, <&cru PCLK_I2C2>;
-		clock-names = "i2c", "pclk";
-		interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH 0>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&i2c2_xfer>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		status = "disabled";
-	};
-
 	i2c3: i2c@ff130000 {
 		compatible = "rockchip,rk3399-i2c";
 		reg = <0x0 0xff130000 0x0 0x1000>;
@@ -2225,6 +2212,19 @@
 	nocp_vio1_msch1: nocp-vio1-msch1@ffa8f800 {
 		compatible = "rockchip,rk3399-nocp";
 		reg = <0x0 0xffa8f800 0x0 0x400>;
+	};
+
+	i2c2: i2c@ff120000 {
+		compatible = "rockchip,rk3399-i2c";
+		reg = <0x0 0xff120000 0x0 0x1000>;
+		clocks = <&cru SCLK_I2C2>, <&cru PCLK_I2C2>;
+		clock-names = "i2c", "pclk";
+		interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH 0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c2_xfer>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
 	};
 
 	pinctrl: pinctrl {

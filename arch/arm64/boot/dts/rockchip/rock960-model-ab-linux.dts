@@ -542,7 +542,7 @@
 	tof@59 {
 		compatible = "ti,opt8320";
 		reg = <0x59>;
-		status = "okay";
+		status = "disabled";
 
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&tof_default_pins>;
@@ -570,6 +570,40 @@
 
 &i2c2 {
 	status = "okay";
+
+	ov9732: camera_rear@36 {
+		compatible = "ovti,ov9732";
+		reg = <0x36>;
+
+		//fsin-gpios = <&msmgpio 34 GPIO_ACTIVE_HIGH>;
+		//tof-gpios = <&msmgpio 36 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&camera_default>;
+
+		clocks = <&cru SCLK_CIF_OUT>;
+		clock-names = "xclk";
+		clock-frequency = <24000000>;
+
+		dvdd-supply = <&vcc_1v8>;
+		//dovdd-supply = <&pm8916_l5>;
+		//avdd-supply = <&pm8916_l10>;
+
+		status = "okay";
+
+		//interrupt-parent = <&msmgpio>;
+		//interrupts = <34 IRQ_TYPE_EDGE_RISING>;
+
+		//port {
+		//	ov9732_ep: endpoint {
+		//		clock-lanes = <1>;
+		//		data-lanes = <0>;
+		//		remote-endpoint = <&csiphy0_ep>;
+		//	};
+		//};
+	};
+
 	camera0: camera-module@10 {
 		status = "disabled";
 		compatible = "omnivision,ov13850-v4l2-i2c-subdev";
@@ -742,7 +776,7 @@
 	reg-io-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_xfer &uart3_cts &uart3_rts>;
-	status = "okay";
+	status = "disabled";
 };
 
 //&uart4 {
@@ -1151,7 +1185,7 @@
 };
 
 &cif_isp0 {
-	rockchip,camera-modules-attached = <&camera0>;
+	rockchip,camera-modules-attached = <&ov9732>;
 	status = "okay";
 };
 

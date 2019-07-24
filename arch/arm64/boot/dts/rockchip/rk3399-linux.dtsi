@@ -258,4 +258,11 @@
 				<1 18 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+	camera_pins {
+		camera_default: camera-default-pins {
+			rockchip,pins =
+				<1 23 RK_FUNC_GPIO &pcfg_pull_none>,
+				<2 11 RK_FUNC_3 &pcfg_pull_none>;
+		};
+	};
 };

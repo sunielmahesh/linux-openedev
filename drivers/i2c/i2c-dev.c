@@ -266,6 +266,7 @@ static noinline int i2cdev_ioctl_rdwr(struct i2c_client *client,
 
 	res = 0;
 	for (i = 0; i < rdwr_arg.nmsgs; i++) {
+		printk(KERN_ERR "ADDR %x LEN %d FLAGS %x\n", rdwr_pa[i].addr, rdwr_pa[i].len, rdwr_pa[i].flags);
 		/* Limit the size of the message to a sane amount */
 		if (rdwr_pa[i].len > 8192) {
 			res = -EINVAL;
