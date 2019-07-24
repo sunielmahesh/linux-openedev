@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0
 EXTRA_CFLAGS += $(USER_EXTRA_CFLAGS)
 EXTRA_CFLAGS += -O1
 #EXTRA_CFLAGS += -O3
@@ -151,7 +152,7 @@ CONFIG_PLATFORM_RTL8197D = n
 
 CONFIG_DRVEXT_MODULE = n
 
-export TopDIR ?= $(shell pwd)/drivers/net/wireless/rockchip_wlan/rtl8723ds
+export TopDIR ?= $(src)
 
 ########### COMMON  #################################
 ifeq ($(CONFIG_GSPI_HCI), y)

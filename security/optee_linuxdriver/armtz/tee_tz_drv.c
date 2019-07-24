@@ -33,6 +33,7 @@
 #include <arm_common/teesmc_st.h>
 
 #include <linux/cpumask.h>
+#include <linux/of.h>
 
 #include "tee_mem.h"
 #include "tee_tz_op.h"
@@ -119,32 +120,18 @@ static long tee_smc_call_switchcpu0(struct smc_param *param)
 }
 #endif /* SWITCH_CPU0_DEBUG */
 
-static void e_lock_teez(struct tee_tz *ptee)
+static void wait_completion_teez(struct tee_tz *ptee)
 {
-	mutex_lock(&ptee->mutex);
-}
-
-static void e_lock_wait_completion_teez(struct tee_tz *ptee)
-{
-	/*
-	 * Release the lock until "something happens" and then reacquire it
-	 * again.
-	 *
-	 * This is needed when TEE returns "busy" and we need to try again
-	 * later.
-	 */
 	ptee->c_waiters++;
-	mutex_unlock(&ptee->mutex);
 	/*
 	 * Wait at most one second. Secure world is normally never busy
 	 * more than that so we should normally never timeout.
 	 */
 	wait_for_completion_timeout(&ptee->c, HZ);
-	mutex_lock(&ptee->mutex);
 	ptee->c_waiters--;
 }
 
-static void e_unlock_teez(struct tee_tz *ptee)
+static void complete_teez(struct tee_tz *ptee)
 {
 	/*
 	 * If at least one thread is waiting for "something to happen" let
@@ -152,7 +139,6 @@ static void e_unlock_teez(struct tee_tz *ptee)
 	 */
 	if (ptee->c_waiters)
 		complete(&ptee->c);
-	mutex_unlock(&ptee->mutex);
 }
 
 static void handle_rpc_func_cmd_mutex_wait(struct tee_tz *ptee,
@@ -384,7 +370,7 @@ static u32 handle_rpc(struct tee_tz *ptee, struct smc_param *param)
 
 	switch (TEESMC_RETURN_GET_RPC_FUNC(param->a0)) {
 	case TEESMC_RPC_FUNC_ALLOC_ARG:
-		param->a1 = tee_shm_pool_alloc(DEV, ptee->shm_pool,
+		param->a1 = rk_tee_shm_pool_alloc(DEV, ptee->shm_pool,
 					param->a1, 4);
 		break;
 	case TEESMC_RPC_FUNC_ALLOC_PAYLOAD:
@@ -457,7 +443,6 @@ static void call_tee(struct tee_tz *ptee,
 
 
 	param.a1 = parg32;
-	e_lock_teez(ptee);
 	while (true) {
 		param.a0 = funcid;
 
@@ -477,17 +462,19 @@ static void call_tee(struct tee_tz *ptee,
 			 * exit from secure world and needed resources may
 			 * have become available).
 			 */
-			e_lock_wait_completion_teez(ptee);
+			wait_completion_teez(ptee);
 		} else if (TEESMC_RETURN_IS_RPC(ret)) {
+			/* Wake up waiting task */
+			complete_teez(ptee);
 			/* Process the RPC. */
-			e_unlock_teez(ptee);
 			funcid = handle_rpc(ptee, &param);
-			e_lock_teez(ptee);
 		} else {
 			break;
 		}
 	}
-	e_unlock_teez(ptee);
+
+	/* Wake up waiting task */
+	complete_teez(ptee);
 
 	switch (ret) {
 	case TEESMC_RETURN_UNKNOWN_FUNCTION:
@@ -518,7 +505,7 @@ static void *alloc_tee_arg(struct tee_tz *ptee, unsigned long *p, size_t l)
 		return NULL;
 
 	/* assume a 4 bytes aligned is sufficient */
-	*p = tee_shm_pool_alloc(DEV, ptee->shm_pool, l, ALLOC_ALIGN);
+	*p = rk_tee_shm_pool_alloc(DEV, ptee->shm_pool, l, ALLOC_ALIGN);
 	if (*p == 0)
 		return NULL;
 
@@ -904,7 +891,7 @@ static struct tee_shm *tz_alloc(struct tee *tee, size_t size, uint32_t flags)
 
 	shm->size_alloc = ((size / SZ_4K) + 1) * SZ_4K;
 	shm->size_req = size;
-	shm->paddr = tee_shm_pool_alloc(tee->dev, ptee->shm_pool,
+	shm->paddr = rk_tee_shm_pool_alloc(tee->dev, ptee->shm_pool,
 					shm->size_alloc, ALLOC_ALIGN);
 	if (!shm->paddr) {
 		dev_err(tee->dev, "%s: cannot alloc memory, size 0x%lx\n",
@@ -1182,6 +1169,38 @@ out:
 	return ret;
 }
 
+static int rk_set_uart_port(struct tee_tz *ptee)
+{
+	struct smc_param param = {0};
+	struct device_node *np;
+	int serial_id;
+	int ret = 0;
+
+	np = of_find_node_by_name(NULL, "fiq-debugger");
+	if (!np)
+		return -ENODEV;
+
+	if (of_device_is_available(np)) {
+		if (of_property_read_u32(np, "rockchip,serial-id", &serial_id))
+			return -EINVAL;
+	} else {
+		serial_id = 0xffffffff;
+	}
+
+	dev_dbg(DEV, "optee set uart port id: %d\n", serial_id);
+	param.a0 = TEESMC32_ROCKCHIP_FASTCALL_SET_UART_PORT;
+	param.a1 = serial_id;
+
+	mutex_lock(&ptee->mutex);
+#ifdef SWITCH_CPU0_DEBUG
+	ret = tee_smc_call_switchcpu0(&param);
+#else
+	tee_smc_call(&param);
+#endif
+	mutex_unlock(&ptee->mutex);
+
+	return ret;
+}
 
 /******************************************************************************/
 
@@ -1200,6 +1219,8 @@ static int tz_start(struct tee *tee)
 	ptee = tee->priv;
 	BUG_ON(ptee->started);
 	ptee->started = true;
+
+	rk_set_uart_port(ptee);
 
 	ret = configure_shm(ptee);
 	if (ret)

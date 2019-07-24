@@ -36,6 +36,14 @@
 
 #include "mali_pm_metrics.h"
 
+#include <soc/rockchip/rockchip_opp_select.h>
+
+static struct thermal_opp_device_data gpu_devdata = {
+	.type = THERMAL_OPP_TPYE_DEV,
+	.low_temp_adjust = rockchip_dev_low_temp_adjust,
+	.high_temp_adjust = rockchip_dev_high_temp_adjust,
+};
+
 static int
 mali_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 {
@@ -50,12 +58,13 @@ mali_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 
 	rcu_read_lock();
 	opp = devfreq_recommended_opp(dev, &freq, flags);
-	voltage = dev_pm_opp_get_voltage(opp);
-	rcu_read_unlock();
-	if (IS_ERR_OR_NULL(opp)) {
+	if (IS_ERR(opp)) {
+		rcu_read_unlock();
 		MALI_PRINT_ERROR(("Failed to get opp (%ld)\n", PTR_ERR(opp)));
 		return PTR_ERR(opp);
 	}
+	voltage = dev_pm_opp_get_voltage(opp);
+	rcu_read_unlock();
 
 	MALI_DEBUG_PRINT(2, ("mali_devfreq_target:set_freq = %lld flags = 0x%x\n", freq, flags));
 	/*
@@ -95,6 +104,8 @@ mali_devfreq_target(struct device *dev, unsigned long *target_freq, u32 flags)
 	}
 	*target_freq = freq;
 	mdev->current_freq = freq;
+	if (mdev->devfreq)
+		mdev->devfreq->last_status.current_frequency = freq;
 
 #ifdef CONFIG_REGULATOR
 	if (mdev->regulator && mdev->current_voltage != voltage &&
@@ -225,6 +236,7 @@ int mali_devfreq_init(struct mali_device *mdev)
 	_mali_osk_device_data data;
 #endif
 	struct devfreq_dev_profile *dp;
+	unsigned long opp_rate;
 	int err;
 
 	MALI_DEBUG_PRINT(2, ("Init Mali devfreq\n"));
@@ -233,8 +245,6 @@ int mali_devfreq_init(struct mali_device *mdev)
 		return -ENODEV;
 
 	mdev->current_freq = clk_get_rate(mdev->clock);
-	if (mdev->regulator)
-		mdev->current_voltage = regulator_get_voltage(mdev->regulator);
 
 	dp = &mdev->devfreq_profile;
 
@@ -261,6 +271,18 @@ int mali_devfreq_init(struct mali_device *mdev)
 		goto opp_notifier_failed;
 	}
 
+	opp_rate = mdev->current_freq;
+	rcu_read_lock();
+	devfreq_recommended_opp(mdev->dev, &opp_rate, 0);
+	rcu_read_unlock();
+	mdev->devfreq->last_status.current_frequency = opp_rate;
+	gpu_devdata.data = mdev->devfreq;
+	mdev->opp_info = rockchip_register_thermal_notifier(mdev->dev,
+							    &gpu_devdata);
+	if (IS_ERR(mdev->opp_info)) {
+		dev_dbg(mdev->dev, "without thermal notifier\n");
+		mdev->opp_info = NULL;
+	}
 #ifdef CONFIG_DEVFREQ_THERMAL
 	if (of_machine_is_compatible("rockchip,rk3036"))
 		return 0;
@@ -312,6 +334,7 @@ void mali_devfreq_term(struct mali_device *mdev)
 
 	MALI_DEBUG_PRINT(2, ("Term Mali devfreq\n"));
 
+	rockchip_unregister_thermal_notifier(mdev->opp_info);
 #ifdef CONFIG_DEVFREQ_THERMAL
 	devfreq_cooling_unregister(mdev->devfreq_cooling);
 #endif

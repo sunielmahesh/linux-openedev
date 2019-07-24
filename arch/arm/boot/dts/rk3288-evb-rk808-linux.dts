@@ -40,6 +40,8 @@
 
 /dts-v1/;
 #include "rk3288-evb.dtsi"
+#include "rk3288-linux.dtsi"
+#include "rk3288-rkisp1.dtsi"
 
 / {
 	compatible = "rockchip,rk3288-evb-rk808-linux", "rockchip,rk3288";
@@ -86,6 +88,44 @@
 		pwms = <&pwm0 0 1000000 PWM_POLARITY_INVERTED>;
 	};
 
+	adc-keys {
+		compatible = "adc-keys";
+		io-channels = <&saradc 1>;
+		io-channel-names = "buttons";
+		poll-interval = <100>;
+		keyup-threshold-microvolt = <1800000>;
+
+		button-up {
+			label = "Volume Up";
+			linux,code = <KEY_VOLUMEUP>;
+			press-threshold-microvolt = <18000>;
+		};
+
+		button-down {
+			label = "Volume Down";
+			linux,code = <KEY_VOLUMEDOWN>;
+			press-threshold-microvolt = <300000>;
+		};
+
+		menu {
+			label = "Menu";
+			linux,code = <KEY_MENU>;
+			press-threshold-microvolt = <640000>;
+		};
+
+		esc {
+			label = "Esc";
+			linux,code = <KEY_ESC>;
+			press-threshold-microvolt = <1000000>;
+		};
+
+		home  {
+			label = "Home";
+			linux,code = <KEY_HOME>;
+			press-threshold-microvolt = <1300000>;
+		};
+	};
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		#address-cells = <1>;
@@ -127,10 +167,49 @@
 	};
 
 	/delete-node/ sdmmc-regulator;
+
+	vcc18_dvp: vcc18-dvp {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc18_dvp";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio0 RK_PC1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+		vin-supply = <&vcc_io>;
+	};
+
+	vdd_log: vdd-logic {
+		compatible = "pwm-regulator";
+		rockchip,pwm_id = <1>;
+		rockchip,pwm_voltage = <1100000>;
+		pwms = <&pwm1 0 25000 1>;
+		regulator-name = "vcc_log";
+		regulator-min-microvolt = <860000>;
+		regulator-max-microvolt = <1360000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	xin32k: xin32k {
+		compatible = "fixed-clock";
+		clock-frequency = <32768>;
+		clock-output-names = "xin32k";
+		#clock-cells = <0>;
+	};
 };
 
 &cpu0 {
 	cpu0-supply = <&vdd_cpu>;
+};
+
+&dfi {
+	status = "okay";
+};
+
+&dmc {
+	center-supply = <&vdd_log>;
+	status = "okay";
 };
 
 &edp {
@@ -156,6 +235,10 @@
 	mali-supply = <&vdd_gpu>;
 };
 
+&hdmi {
+	pinctrl-0 = <&hdmi_ddc>, <&hdmi_cec>;
+};
+
 &i2c0 {
 	clock-frequency = <400000>;
 
@@ -169,7 +252,7 @@
 		rockchip,system-power-controller;
 		wakeup-source;
 		#clock-cells = <1>;
-		clock-output-names = "xin32k", "rk808-clkout2";
+		clock-output-names = "rk808-clkout1", "rk808-clkout2";
 
 		vcc1-supply = <&vcc_sys>;
 		vcc2-supply = <&vcc_sys>;
@@ -399,7 +482,7 @@
 	status = "okay";
 	audio-supply = <&vcc_io>;
 	bb-supply = <&vcc_io>;
-	dvp-supply = <&vcc_io>;
+	dvp-supply = <&vcc18_dvp>;
 	flash0-supply = <&vcc_18>;
 	flash1-supply = <&vcc_io>;
 	gpio30-supply = <&vcc_io>;
@@ -411,9 +494,75 @@
 
 &i2c3 {
 	status = "okay";
+
+	ov13850: ov13850@10 {
+		compatible = "ovti,ov13850";
+		status = "okay";
+		reg = <0x10>;
+		clocks = <&cru SCLK_VIP_OUT>;
+		clock-names = "xvclk";
+
+		reset-gpios = <&gpio7 21 GPIO_ACTIVE_HIGH>;
+		pwdn-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;
+
+		port {
+			cam_out: endpoint {
+				remote-endpoint = <&mipi_in_cam>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&isp {
+	status = "okay";
+
+	port {
+		isp_mipi_in: endpoint {
+			remote-endpoint = <&dphy_rx0_out>;
+		};
+	};
+};
+
+&isp_mmu {
+	status = "okay";
+};
+
+&mipi_phy_rx0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			mipi_in_cam: endpoint {
+				remote-endpoint = <&cam_out>;
+				data-lanes = <1 2>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			dphy_rx0_out: endpoint {
+				remote-endpoint = <&isp_mipi_in>;
+			};
+		};
+	};
 };
 
 &rga {
+	status = "okay";
+};
+
+&route_edp {
+	status = "okay";
+};
+
+&route_hdmi {
 	status = "okay";
 };
 
@@ -422,6 +571,10 @@
 };
 
 &uart2 {
+	status = "okay";
+};
+
+&pwm1 {
 	status = "okay";
 };
 
