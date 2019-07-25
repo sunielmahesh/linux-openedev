@@ -602,6 +602,12 @@
 		//		remote-endpoint = <&csiphy0_ep>;
 		//	};
 		//};
+		port {
+			ucam_out0: endpoint {
+				remote-endpoint = <&mipi_in_ucam0>;
+				data-lanes = <1>;
+			};
+		};
 	};
 
 	camera0: camera-module@10 {
@@ -1184,18 +1190,54 @@
 	status = "okay";
 };
 
-&cif_isp0 {
-	rockchip,camera-modules-attached = <&ov9732>;
+&rkisp1_0 {
 	status = "okay";
+
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp0_mipi_in: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&dphy_rx0_out>;
+		};
+	};
+};
+
+&mipi_dphy_rx0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi_in_ucam0: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&ucam_out0>;
+				data-lanes = <1>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dphy_rx0_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&isp0_mipi_in>;
+			};
+		};
+	};
 };
 
 &isp0_mmu {
 	status = "okay";
-};
-
-&cif_isp1 {
-	rockchip,camera-modules-attached = <&camera1>;
-	status = "disabled";
 };
 
 &isp1_mmu {
