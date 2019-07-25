@@ -1942,19 +1942,18 @@ static int ov9732_probe(struct i2c_client *client,
 	ret = ov9732_read_reg(ov9732, REG_CHIP_ID_HIGH, &chip_id_high);
 	if (ret < 0 || chip_id_high != REG_CHIP_ID_HIGH_BYTE) {
 		dev_err(dev, "could not read ID high\n");
-		//ret = -ENODEV;
-		//goto power_down;
+		ret = -ENODEV;
+		goto power_down;
 	}
 	ret = ov9732_read_reg(ov9732, REG_CHIP_ID_LOW, &chip_id_low);
 	if (ret < 0 || chip_id_low != REG_CHIP_ID_LOW_BYTE) {
 		dev_err(dev, "could not read ID low\n");
-		//ret = -ENODEV;
-		//goto power_down;
+		ret = -ENODEV;
+		goto power_down;
 	}
 
 	printk(KERN_ERR "chip id high %x low %x\n", chip_id_high, chip_id_low);
 
-#if 0
 	dev_info(dev, "OV9732 detected at address 0x%02x\n", client->addr);
 
 	ret = ov9732_read_reg(ov9732, REG_AEC_PK_MANUAL,
@@ -1982,7 +1981,7 @@ static int ov9732_probe(struct i2c_client *client,
 	}
 
 	ov9732_s_power(&ov9732->sd, false);
-#endif
+
 	ret = v4l2_async_register_subdev(&ov9732->sd);
 	if (ret < 0) {
 		dev_err(dev, "could not register v4l2 device\n");
@@ -2005,7 +2004,7 @@ static int ov9732_probe(struct i2c_client *client,
 
 	return 0;
 
-//power_down:
+power_down:
 	ov9732_s_power(&ov9732->sd, false);
 free_entity:
 	media_entity_cleanup(&ov9732->sd.entity);
