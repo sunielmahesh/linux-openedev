@@ -17,6 +17,7 @@ config SND_SOC_ROCKCHIP_I2S
 	tristate "Rockchip I2S Device Driver"
 	depends on CLKDEV_LOOKUP && SND_SOC_ROCKCHIP
 	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select SND_SOC_DMIC
 	help
 	  Say Y or M if you want to add support for I2S driver for
 	  Rockchip I2S device. The device supports up to maximum of
@@ -140,3 +141,12 @@ config SND_SOC_ROCKCHIP_CDNDP
 	help
 	  Say Y or M here if you want to add support for SoC audio on Rockchip
 	  boards using CDN DP, such as RK3399 boards.
+
+config SND_SOC_RK3399_GRU_SOUND
+	tristate "ASoC support multiple codecs for Rockchip RK3399 GRU boards"
+	depends on SND_SOC_ROCKCHIP && GPIOLIB && CLKDEV_LOOKUP
+	select SND_SOC_ROCKCHIP_I2S
+	select SND_SOC_DMIC
+	help
+	  Say Y or M here if you want to add support multiple codecs for SoC
+	  audio on Rockchip RK3399 GRU boards.

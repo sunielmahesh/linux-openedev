@@ -168,6 +168,21 @@
 		};
 	};
 
+	dmic: dmic {
+		status = "okay";
+		compatible = "dmic-codec";
+		num-channels = <4>;
+		wakeup-delay-ms = <50>;
+		#sound-dai-cells = <0>;
+	};
+
+	sound: sound {
+		status = "okay";
+		compatible = "rockchip,rk3399-gru-sound";
+		rockchip,cpu = <&i2s0>;
+		rockchip,codec = <&dmic>;
+	};
+
 	spdif_out: spdif-out {
 		status = "okay";
 		compatible = "linux,spdif-dit";
@@ -276,7 +291,7 @@
 };
 
 &i2s0 {
-	status = "disabled";
+	status = "okay";
 	rockchip,i2s-broken-burst-len;
 	rockchip,playback-channels = <8>;
 	rockchip,capture-channels = <8>;
@@ -537,7 +552,7 @@
 
 &i2c7 {
 	label = "ToF";
-	status = "okay";
+	status = "disabled";
 
 	tof@59 {
 		compatible = "ti,opt8320";

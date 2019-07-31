@@ -59,6 +59,8 @@ static struct snd_soc_codec_driver soc_dmic = {
 
 static int dmic_dev_probe(struct platform_device *pdev)
 {
+	printk(KERN_ERR "DMIC PROBED\n");
+
 	return snd_soc_register_codec(&pdev->dev,
 			&soc_dmic, &dmic_dai, 1);
 }
@@ -71,9 +73,16 @@ static int dmic_dev_remove(struct platform_device *pdev)
 
 MODULE_ALIAS("platform:dmic-codec");
 
+static const struct of_device_id dmic_dev_match[] = {
+	{.compatible = "dmic-codec"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, dmic_dev_match);
+
 static struct platform_driver dmic_driver = {
 	.driver = {
 		.name = "dmic-codec",
+		.of_match_table = dmic_dev_match,
 	},
 	.probe = dmic_dev_probe,
 	.remove = dmic_dev_remove,

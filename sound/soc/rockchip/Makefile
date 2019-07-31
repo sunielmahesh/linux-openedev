@@ -29,6 +29,7 @@ snd-soc-rockchip-multicodecs-objs := rockchip_multicodecs.o
 snd-soc-rockchip-rt5645-objs := rockchip_rt5645.o
 snd-soc-rockchip-rt5651-tc358749x-objs := rockchip_rt5651_tc358749x.o
 snd-soc-rockchip-cdndp-objs := rockchip_cdndp.o
+snd-soc-rk3399-gru-sound-objs := rk3399_gru_sound.o
 
 obj-$(CONFIG_SND_SOC_ROCKCHIP_DA7219) += snd-soc-rockchip-da7219.o
 obj-$(CONFIG_SND_SOC_ROCKCHIP_HDMI_ANALOG) += snd-soc-rockchip-hdmi-analog.o
@@ -38,3 +39,4 @@ obj-$(CONFIG_SND_SOC_ROCKCHIP_MULTICODECS) += snd-soc-rockchip-multicodecs.o
 obj-$(CONFIG_SND_SOC_ROCKCHIP_RT5645) += snd-soc-rockchip-rt5645.o
 obj-$(CONFIG_SND_SOC_ROCKCHIP_RT5651_TC358749) += snd-soc-rockchip-rt5651-tc358749x.o
 obj-$(CONFIG_SND_SOC_ROCKCHIP_CDNDP) += snd-soc-rockchip-cdndp.o
+obj-$(CONFIG_SND_SOC_RK3399_GRU_SOUND) += snd-soc-rk3399-gru-sound.o
