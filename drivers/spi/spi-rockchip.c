@@ -22,6 +22,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/scatterlist.h>
 #include <linux/interrupt.h>
+#include <linux/pwm.h>
+#include <linux/gpio/consumer.h>
 
 #define DRIVER_NAME "rockchip-spi"
 
@@ -189,12 +191,21 @@ struct rockchip_spi {
 	/* protect state */
 	spinlock_t lock;
 
+	unsigned int count;
+
 	u32 use_dma;
 	struct sg_table tx_sg;
 	struct sg_table rx_sg;
 	struct rockchip_spi_dma_data dma_rx;
 	struct rockchip_spi_dma_data dma_tx;
 	struct pinctrl_state *high_speed_state;
+
+
+	struct gpio_desc * toggle_gpio;
+	struct pwm_device *pwm;
+	int start, freq;
+
+	unsigned long new,old;
 };
 
 static inline void spi_enable_chip(struct rockchip_spi *rs, int enable)
@@ -409,10 +420,23 @@ static irqreturn_t rockchip_spi_isr(int irq, void *dev_id)
 	struct spi_master *master = dev_id;
 	struct rockchip_spi *rs = spi_master_get_devdata(master);
 	u32 isr = readl_relaxed(rs->regs + ROCKCHIP_SPI_ISR);
+	struct timespec t1, t2;
 
-	printk(KERN_ERR "ISR %x\n", isr);
+	ktime_get_real_ts(&t1);
+	rs->old = timespec_to_ns(&t1);
+
+	//rs->old = rs->new;
+	//rs->new = timespec_to_ns(&t);
+
+	if (isr & INT_RF_FULL) {
+		rs->count += (rs->fifo_len * 2 * 8) / 2;
+		flush_fifo(rs);
+		ktime_get_real_ts(&t2);
+		rs->new = timespec_to_ns(&t2);
+		rs->new = rs->new - rs->old;
+	}
+
 	writel_relaxed(1, rs->regs + ROCKCHIP_SPI_ICR);
-	writel_relaxed(0x0, rs->regs + ROCKCHIP_SPI_IMR);
 
 	return IRQ_HANDLED;
 }
@@ -687,7 +711,7 @@ static int rockchip_spi_transfer_one(
 
 	if (rs->use_dma) {
 		if (rs->tmode == CR0_XFM_RO) {
-			writel_relaxed(INT_RF_OVERFLOW, rs->regs + ROCKCHIP_SPI_IMR);
+			writel_relaxed(INT_RF_OVERFLOW | INT_RF_FULL, rs->regs + ROCKCHIP_SPI_IMR);
 			/* rx: dma must be prepared first */
 			ret = rockchip_spi_prepare_dma(rs);
 			spi_enable_chip(rs, 1);
@@ -714,12 +738,120 @@ static bool rockchip_spi_can_dma(struct spi_master *master,
 	return (xfer->len > rs->fifo_len);
 }
 
+static ssize_t delay_read(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	struct spi_master *master = spi_master_get(dev_get_drvdata(dev));
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+
+	return sprintf(buf, "%lu\n", rs->new);
+}
+static DEVICE_ATTR(delay, 0444, delay_read, NULL);
+
+static ssize_t freq_read(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	struct spi_master *master = spi_master_get(dev_get_drvdata(dev));
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+
+	printk(KERN_ERR "count %d\n", rs->count);
+
+	return sprintf(buf, "%d\n", rs->freq);
+}
+
+static ssize_t freq_write(struct device *dev,
+			 struct device_attribute *attr, const char *buf,
+			 size_t size)
+{
+	struct spi_master *master = spi_master_get(dev_get_drvdata(dev));
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+	unsigned long period, duty_cycle;
+	u32 val;
+	int ret;
+
+	if (sscanf(buf, "%u", &val) != 1) {
+		printk(KERN_ERR "error reading reg");
+		return -EINVAL;
+	}
+
+	period = (NSEC_PER_SEC / val);
+	duty_cycle = NSEC_PER_SEC / (val * 2);
+	ret = pwm_config(rs->pwm, duty_cycle, period);
+
+	if (ret)
+		printk(KERN_ERR "couldn't set the freq %d!", ret);
+
+	rs->freq = val;
+
+	return size;
+
+}
+static DEVICE_ATTR(freq, 0664, freq_read, freq_write);
+
+static ssize_t start_read(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	struct spi_master *master = spi_master_get(dev_get_drvdata(dev));
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+
+	return sprintf(buf, "%d\n", rs->start);
+}
+
+static void config_spi(struct rockchip_spi *rs)
+{
+	writel_relaxed(0, rs->regs + ROCKCHIP_SPI_DMACR);
+	writel_relaxed(0xffff, rs->regs + ROCKCHIP_SPI_CTRLR1);
+	writel_relaxed(rs->fifo_len / 2 - 1, rs->regs + ROCKCHIP_SPI_RXFTLR);
+	writel_relaxed(INT_RF_OVERFLOW | INT_RF_FULL, rs->regs + ROCKCHIP_SPI_IMR);
+	spi_enable_chip(rs, 1);
+}
+
+static ssize_t start_write(struct device *dev,
+			 struct device_attribute *attr, const char *buf,
+			 size_t size)
+{
+	struct spi_master *master = spi_master_get(dev_get_drvdata(dev));
+	struct rockchip_spi *rs = spi_master_get_devdata(master);
+	u32 val = 0;
+
+	if (sscanf(buf, "%u", &val) != 1) {
+		printk(KERN_ERR "error reading reg");
+		return -EINVAL;
+	}
+
+	if (val == 1) {
+		if (rs->start == 0) {
+			config_spi(rs);
+
+			pwm_enable(rs->pwm);
+
+			gpiod_set_value_cansleep(rs->toggle_gpio, 0);
+			rs->start = 1;
+		} else {
+			return size;
+		}
+	} else {
+		if (rs->start == 1) {
+			gpiod_set_value_cansleep(rs->toggle_gpio, 1);
+			pwm_disable(rs->pwm);
+			writel_relaxed(0, rs->regs + ROCKCHIP_SPI_IMR);
+			spi_enable_chip(rs, 0);
+			rs->start = 0;
+		}
+	}
+
+
+	return size;
+}
+static DEVICE_ATTR(start, 0664, start_read, start_write);
+
 static int rockchip_spi_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct rockchip_spi *rs;
 	struct spi_master *master;
 	struct resource *mem;
+	struct device *dev = &pdev->dev;
 	u32 rsd_nsecs;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(struct rockchip_spi));
@@ -765,6 +897,21 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to enable spi_clk\n");
 		goto err_spiclk_enable;
 	}
+
+	rs->pwm = devm_of_pwm_get(&pdev->dev, pdev->dev.of_node, NULL);
+	if (IS_ERR(rs->pwm)) {
+		dev_err(&pdev->dev, "Could not get PWM\n");
+		return PTR_ERR(rs->pwm);
+	}
+
+	if (device_create_file(dev, &dev_attr_start))
+		device_remove_file(dev, &dev_attr_start);
+
+	if (device_create_file(dev, &dev_attr_freq))
+		device_remove_file(dev, &dev_attr_freq);
+
+	if (device_create_file(dev, &dev_attr_delay))
+		device_remove_file(dev, &dev_attr_delay);
 
 	spi_enable_chip(rs, 0);
 
@@ -856,6 +1003,12 @@ static int rockchip_spi_probe(struct platform_device *pdev)
 			IRQF_ONESHOT, dev_name(&pdev->dev), master);
 	if (ret < 0)
 		goto err_get_fifo_len;
+
+	rs->toggle_gpio = devm_gpiod_get(dev, "toggle", GPIOD_OUT_HIGH);
+	if (IS_ERR(rs->toggle_gpio)) {
+		dev_err(dev, "cannot get toggle gpio\n");
+		return PTR_ERR(rs->toggle_gpio);
+	}
 
 	return 0;
 
