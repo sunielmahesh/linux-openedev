@@ -25,6 +25,17 @@
 	};
 };
 
+&bluetooth {
+	device-wakeup-gpios = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>;	/* BT_WAKE */
+	host-wakeup-gpios = <&gpio0 RK_PA5 GPIO_ACTIVE_HIGH>;	/* BT_HOST_WAKE */
+	shutdown-gpios = <&gpio2 RK_PD4 GPIO_ACTIVE_HIGH>;	/* BT_RST */
+};
+
+&brcmf {
+	interrupt-parent = <&gpio0>;
+	interrupts = <RK_PA3 GPIO_ACTIVE_HIGH>;
+};
+
 &cpu_l0 {
 	cpu-supply = <&vdd_cpu_l>;
 };
@@ -335,6 +346,20 @@
 };
 
 &pinctrl {
+	bt {
+		bt_wake: bt-wake {
+			rockchip,pins = <2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_host_wake: bt-host-wake {
+			rockchip,pins = <0 RK_PA5 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_rst: bt-rst {
+			rockchip,pins = <2 RK_PD4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	hym8563 {
 		hym8563_int: hym8563-int {
 			rockchip,pins = <4 RK_PD6 0 &pcfg_pull_up>;
@@ -368,6 +393,12 @@
 	vbus_typec {
 		usb0_en_oc: usb0-en-oc {
 			rockchip,pins = <4 RK_PD2 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+
+	wifi {
+		wifi_host_wake_l: wifi-host-wake-l {
+			rockchip,pins = <0 RK_PA3 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
 };
