@@ -94,7 +94,6 @@
 	non-removable;
 	pinctrl-names = "default";
 	pinctrl-0 = <&sdio0_bus4 &sdio0_cmd &sdio0_clk>;
-	sd-uhs-sdr104;
 	vmmc-supply = <&vcc3v3_ngff>;
 	vqmmc-supply = <&vcc_1v8>;
 	status = "okay";
