@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0
+config RTL8822CS
+	tristate "Realtek RTL8822CS SDIO Wireless LAN NIC driver"
+	depends on WLAN && MMC && CFG80211
+	depends on m
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select RTL8822CS_OS
+	help
+	  This option enables support for RTL8822CS SDIO drivers, such as
+	  the wifi found on the 1st gen Intel Compute Stick, the CHIP
+	  and many other Intel Atom and ARM based devices.
+	  If built as a module, it will be called r8822cs.
+
+if RTL8822CS
+
+config SDIO_HCI
+	tristate
+
+config MP_INCLUDED
+	tristate
+
+source "drivers/staging/rtl8822cs/os_dep/Kconfig"
+
+endif # RTL8822CS

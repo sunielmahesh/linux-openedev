@@ -1,0 +1,16 @@
+menuconfig RTL8822CS_OS
+	tristate "RTL8822CS OS drivers"
+	select RTL8822CS_OS_DRV
+	help
+	  RTL8822CS OS drivers.
+
+if RTL8822CS_OS
+
+config RTL8822CS_OS_DRV
+	tristate "RTL8822CS OS Core drivers"
+	select SDIO_HCI
+	select MP_INCLUDED
+	help
+	  RTL8822CS OS core drivers.
+
+endif # RTL8822CS_OS
