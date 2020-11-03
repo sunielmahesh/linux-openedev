@@ -5,6 +5,7 @@ config RTL8822CS
 	depends on m
 	select WIRELESS_EXT
 	select WEXT_PRIV
+	select RTL8822CS_CORE
 	select RTL8822CS_OS
 	select RTL8822CS_HAL
 	help
@@ -21,6 +22,7 @@ config SDIO_HCI
 config MP_INCLUDED
 	tristate
 
+source "drivers/staging/rtl8822cs/core/Kconfig"
 source "drivers/staging/rtl8822cs/os_dep/Kconfig"
 source "drivers/staging/rtl8822cs/hal/Kconfig"
 
