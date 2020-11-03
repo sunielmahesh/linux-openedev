@@ -6,6 +6,7 @@ config RTL8822CS
 	select WIRELESS_EXT
 	select WEXT_PRIV
 	select RTL8822CS_OS
+	select RTL8822CS_HAL
 	help
 	  This option enables support for RTL8822CS SDIO drivers, such as
 	  the wifi found on the 1st gen Intel Compute Stick, the CHIP
@@ -21,5 +22,6 @@ config MP_INCLUDED
 	tristate
 
 source "drivers/staging/rtl8822cs/os_dep/Kconfig"
+source "drivers/staging/rtl8822cs/hal/Kconfig"
 
 endif # RTL8822CS
