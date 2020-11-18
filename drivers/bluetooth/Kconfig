@@ -103,7 +103,6 @@ config BT_HCIUART
 config BT_HCIUART_SERDEV
 	bool
 	depends on SERIAL_DEV_BUS && BT_HCIUART
-	default y
 
 config BT_HCIUART_H4
 	bool "UART (H4) protocol support"
