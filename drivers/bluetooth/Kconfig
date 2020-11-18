@@ -115,6 +115,16 @@ config BT_HCIUART_H4
 
 	  Say Y here to compile support for HCI UART (H4) protocol.
 
+config BT_HCIUART_H4_8822CS
+        bool "Realtek UART (H4) protocol support"
+        depends on BT_HCIUART
+        help
+          UART (H4) is serial protocol for communication between Bluetooth
+          device and host. This protocol is required for most Bluetooth devices
+          with UART interface, including PCMCIA and CF cards.
+
+          Say Y here to compile support for Realtek HCI UART (H4) protocol.
+
 config BT_HCIUART_NOKIA
 	tristate "UART Nokia H4+ protocol support"
 	depends on BT_HCIUART
