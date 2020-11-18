@@ -83,6 +83,20 @@
 			rockchip,pins = <4 RK_PD1 RK_FUNC_GPIO &pcfg_pull_none>;
 		};
 	};
+
+	bt {
+		bt_enable_h: bt-enable-h {
+			rockchip,pins = <0 RK_PB1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_host_wake_l: bt-host-wake-l {
+			rockchip,pins = <0 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_wake_l: bt-wake-l {
+			rockchip,pins = <2 RK_PD2 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
 };
 
 &sdio0 {
@@ -106,4 +120,18 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&wifi_host_wake_l>;
 	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_xfer &uart0_cts &uart0_rts>;
+	status = "okay";
+
+	bluetooth {
+		device-wake-gpios = <&gpio2 RK_PD2 GPIO_ACTIVE_HIGH>; // BT_WAKE_L
+		enable-gpios = <&gpio0 RK_PB1 GPIO_ACTIVE_HIGH>; // BT_REG_ON
+		host-wakeup-gpios = <&gpio0 RK_PA4 GPIO_ACTIVE_HIGH>; // BT_HOST_WAKE_L
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_host_wake_l &bt_wake_l &bt_enable_h>;
+        };
 };
